@@ -29,9 +29,9 @@ motif = sys.argv[2]
 precision = sys.argv[3]
 
 
-origin_file = f"lib-{lib}-nonredundant-filtered-{motif}-origin.txt"
-clusterfile = f"lib-{lib}-{motif}-{precision}.all.clust"
-coorfile = f"lib-{lib}-nonredundant-filtered-{motif}.npy"
+origin_file = f"input/lib-{lib}-nonredundant-filtered-{motif}-origin.txt"
+clusterfile = f"output/lib-{lib}-{motif}-{precision}.all.clust"
+coorfile = f"input/lib-{lib}-nonredundant-filtered-{motif}.npy"
 
 coors = np.load(coorfile)
 assert coors.ndim == 3 and coors.shape[-1] == 3, coors.shape
@@ -114,7 +114,9 @@ for clus in clustering:
     else:
         primary_clusters.append(clus)
 
-with open(f"build-library-{lib}-{motif}-{precision}-primary-indices.txt", "w") as f:
+with open(
+    f"output/build-library-{lib}-{motif}-{precision}-primary-indices.txt", "w"
+) as f:
     for clus in primary_clusters:
         print(clus[0] + 1, file=f)
 
@@ -143,7 +145,9 @@ for clus in tqdm(primary_clusters):
     replacement_rmsd.append(r)
     replacement.append(rep)
 
-with open(f"build-library-{lib}-{motif}-{precision}-replacement-indices.txt", "w") as f:
+with open(
+    f"output/build-library-{lib}-{motif}-{precision}-replacement-indices.txt", "w"
+) as f:
     for rep in replacement:
         rep2 = rep + 1 if rep is not None else "----"
         print(rep2, file=f)
@@ -241,7 +245,9 @@ with open(f"{base}-extension.origin.txt", "w") as f:
     for ind in extension:
         print(origins[ind], file=f)
 
-with open(f"build-library-{lib}-{motif}-{precision}-singleton-fit.txt", "w") as f:
+with open(
+    f"output/build-library-{lib}-{motif}-{precision}-singleton-fit.txt", "w"
+) as f:
     print(
         "#origin #prim-ind #is-repl #prim-origin #prim-RMSD #ext-ind #ext-origin #ext-RMSD",
         file=f,

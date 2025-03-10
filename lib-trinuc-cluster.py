@@ -29,9 +29,12 @@ struc = np.load(strucf)
 print("Structures:", len(struc), file=sys.stderr)
 
 
-print("Quickly peel off the (approximately) largest clusters", file=sys.stderr)
-
 LARGEST_CLUSTERS = 50
+print(
+    f"Quickly peel off the {LARGEST_CLUSTERS} (approximately) largest clusters",
+    file=sys.stderr,
+)
+
 NSAMPLES = [10, 20, 20, 50, 100, 200, 500, 1000, 1000, 2000]
 if USE_SEAMLESS:
 
@@ -56,8 +59,6 @@ else:
         NSAMPLES=NSAMPLES,
         RANDOM_SEED=0,
     )
-
-json.dump(big_clusters, open(f"lib-trinuc-bigcluster-{triseq}.json", "w"))
 
 clustering = {}
 
@@ -129,5 +130,9 @@ clustering_closest, clustering_all = reassign_clustering(
     [clustering[k] for k in sorted(clustering.keys())],
 )
 
-write_clustering(f"lib-trinuc-{triseq}-{rmsd_threshold}.clust", clustering_closest)
-write_clustering(f"lib-trinuc-{triseq}-{rmsd_threshold}.all.clust", clustering_all)
+write_clustering(
+    f"output/lib-trinuc-{triseq}-{rmsd_threshold}.clust", clustering_closest
+)
+write_clustering(
+    f"output/lib-trinuc-{triseq}-{rmsd_threshold}.all.clust", clustering_all
+)
