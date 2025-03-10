@@ -1,0 +1,6 @@
+*.code-workspace
+*.pyc
+input/*
+library/*
+config/*
+BAK/*
