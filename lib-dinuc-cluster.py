@@ -22,7 +22,7 @@ else:
 
 diseq = sys.argv[1]
 rmsd_threshold = float(sys.argv[2])
-strucf = f"input/lib-dinuc-nonredundant-filtered-{diseq}.npy"
+strucf = f"nucleotide-fragments/dinuc/{diseq}.npy"
 struc = np.load(strucf)
 print("Structures:", len(struc), file=sys.stderr)
 

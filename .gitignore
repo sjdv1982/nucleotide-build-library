@@ -1,8 +1,9 @@
 *.code-workspace
 *.pyc
-input/*
 library/*
 config/*
 cache/*
 BAK/*
+output/*
+*.out
 context-specific/pdb2*.txt

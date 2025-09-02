@@ -1,6 +1,4 @@
-import os
 import sys
-import json
 import numpy as np
 from tqdm import tqdm
 import nefertiti
@@ -24,7 +22,7 @@ else:
 
 triseq = sys.argv[1]
 rmsd_threshold = float(sys.argv[2])
-strucf = f"input/lib-trinuc-nonredundant-filtered-{triseq}.npy"
+strucf = f"nucleotide-fragments/trinuc/{triseq}.npy"
 struc = np.load(strucf)
 print("Structures:", len(struc), file=sys.stderr)
 

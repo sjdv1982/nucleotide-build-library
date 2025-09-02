@@ -1,3 +1,6 @@
 [submodule "templates"]
 	path = templates
 	url = git@github.com:sjdv1982/nucleotide-fragment-templates.git
+[submodule "nucleotide-fragments"]
+	path = nucleotide-fragments
+	url = git@gitlab.inria.fr:sdevries/nucleotide-fragments
