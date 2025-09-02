@@ -1,5 +1,6 @@
 """Find the closest fit of all conformers, after 1A clustering"""
 
+import os
 import sys
 import numpy as np
 from clusterlib import read_clustering
@@ -30,8 +31,8 @@ lib = sys.argv[1]
 assert lib in ("dinuc", "trinuc")
 motif = sys.argv[2]
 
-origin_file = f"input/lib-{lib}-nonredundant-filtered-{motif}-origin.txt"
-coorfile = f"input/lib-{lib}-nonredundant-filtered-{motif}.npy"
+origin_file = f"nucleotide-fragments/{lib}/origin/{motif}.txt"
+coorfile = f"nucleotide-fragments/{lib}/{motif}.npy"
 
 coors = np.load(coorfile)
 assert coors.ndim == 3 and coors.shape[-1] == 3, coors.shape
@@ -85,7 +86,7 @@ def get_clustering(precision):
 
     clustering = [[cc - 1 for cc in c] for c in clustering]
 
-    closest_clusterfile = f"lib-{lib}-{motif}-{precision}.clust"
+    closest_clusterfile = f"output/lib-{lib}-{motif}-{precision}.clust"
     closest_clustering = read_clustering(closest_clusterfile)
     closest_clustering = [[cc - 1 for cc in c] for c in closest_clustering]
 
@@ -428,7 +429,8 @@ result.update(result1A)
 result.update(result2A)
 result.update(result_remaining)
 
-outfile = f"output/lib-{lib}-{motif}-closest-fit.txt"
+os.makedirs(f"output/closest-fit", exist_ok=True)
+outfile = f"output/closest-fit/{lib}-{motif}.txt"
 with open(outfile, "w") as f:
     for conf in range(len(coors)):
         closest_fit, closest_fit_rmsd = result[conf]
