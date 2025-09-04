@@ -1,4 +1,4 @@
-"""Find the closest fit of all conformers, after 1A clustering"""
+"""Find the closest fit of all conformers, after 1A+2A clustering"""
 
 import os
 import sys
@@ -169,7 +169,7 @@ def get_closest_fit(
             X is the RMSD of the bullseye cluster heart to the closest fitting conformer
             Y is the RMSD of the bullseye cluster heart to the fitted structure
             Z is the RMSD of the fitted structure to the closest fitted structure.    
-        Knowing Y and an upper bound of Z, we try to prove that X <= cluster-precision
+        Knowing Y and ZZ (an upper bound of Z), we try to prove that X <= cluster-precision
         """
         bullseye_candidates = []
         bullseye_rmsds = []
@@ -387,9 +387,9 @@ for confnr, conf in enumerate(tqdm(remaining)):
 
     closest_rmsd_initial_estimates.append(closest_rmsd_estimate)
 
-    # We have now a closest RMSD estimate X
+    # We have now a closest RMSD estimate ZZ
     candidates = all_candidates[confnr]
-    # Eliminate-in-bulk all 1A big clusters where the cluster heart RMSD > X + 1
+    # Eliminate-in-bulk all 1A big clusters where Y (the cluster heart RMSD) > ZZ + 1
     for clusnr in range(len(big_clust1A)):
         if rmsd_bigclust1A[clusnr] > closest_rmsd_estimate + 1:
             big_clust = big_clust1A[clusnr]
@@ -397,8 +397,8 @@ for confnr, conf in enumerate(tqdm(remaining)):
 
     # For each 2A big cluster, we have:
     #   Y, the RMSD between cluster heart and fitted conformer
-    #   Z, the RMSD between cluster heart and a particular member
-    # If Z < Y - X, we can eliminate that member
+    #   Q, the RMSD between cluster heart and a particular member
+    # If Q < Y - ZZ, we can eliminate that member
     for clusnr in range(len(big_clust2A)):
         y = rmsd_bigclust2A[clusnr]
         elim = big_clust2A_rmsd[clusnr] < (y - closest_rmsd_estimate)
