@@ -195,13 +195,13 @@ stat_putative_non_singleton = report(
 print()
 print(f"Trivial non-singletons: #{stat_trivial}      = {len(fragments_multi_origin)}")
 print(
-    f"Sure non-singletons: #{stat_non_singleton1} + #{stat_non_singleton2}   = {len(close_pairs)}"
+    f"Certain non-singletons: #{stat_non_singleton1} + #{stat_non_singleton2}   = {len(close_pairs)}"
 )
 print(
     f"Putative non-singletons: #{stat_putative_non_singleton}    = {len(putative_non_singletons)}"
 )
 print(
-    f"Sure singletons: #{stat_singleton1} + #{stat_singleton2}        = {len(singletons)}"
+    f"Certain singletons: #{stat_singleton1} + #{stat_singleton2}        = {len(singletons)}"
 )
 print(
     f"Putative singletons: #{stat_putative_singleton}        = {len(putative_singletons)}"
