@@ -1,0 +1,2 @@
+First run classify-fragments.sh, then run one of the check-all scripts (check-all.sh is the fastest).
+Finally, run the verification notebook.
