@@ -2,6 +2,7 @@
 
 import os
 import sys
+import random
 import numpy as np
 from clusterlib import read_clustering
 import nefertiti
@@ -115,19 +116,6 @@ def get_closest_fit(
     done=[],
     explore_members=True,
 ):
-    global superimpose, superimpose_array
-
-    import numpy as np
-
-    try:
-        superimpose_array
-    except NameError:
-        from .superimpose import superimpose, superimpose_array
-
-    try:
-        from tqdm import tqdm
-    except ImportError:
-        tqdm = lambda arg: arg
 
     done = set(done)
     nconf = len(coors)
@@ -234,7 +222,7 @@ def get_closest_fit(
         if not have_bullseye() and len(bullseye_candidates) > 0:
             # We could not find a bullseye cluster by superimposing the hearts alone.
             # Let's try superimposing the first SMALL_STRUC cluster members,
-            #  to get a better closest known RMSD
+            #  to get a better closest known RMSD.
             for pos in np.argsort(bullseye_rmsds):
                 clusnr = bullseye_candidates[pos]
                 clus = clustering[clusnr]
@@ -339,7 +327,6 @@ remaining = [
     for conf in range(len(coors))
     if conf not in result1A and conf not in result2A and conf not in result0
 ]
-import random
 
 random.shuffle(remaining)
 remaining = np.array(remaining, int)

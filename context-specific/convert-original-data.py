@@ -1,5 +1,5 @@
 pfams = []
-with open("original/pdb_chain_pfam.lst") as f:
+with open("original-data/pdb_chain_pfam.lst") as f:
     for l in f.readlines()[2:]:
         ll = l.split()
         pdb = ll[0].lower() + ll[1]
@@ -11,7 +11,7 @@ with open("pdb2pfam.txt", "w") as f:
 
 
 rfams = []
-with open("original/Rfam-pdb.txt") as f:
+with open("original-data/Rfam-pdb.txt") as f:
     for l in f.readlines()[2:]:
         ll = l.split()
         rfam = ll[0]
