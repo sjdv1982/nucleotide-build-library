@@ -1,5 +1,5 @@
 import os
-from typing import Literal
+from typing import Literal, Optional
 
 currdir = os.path.abspath(os.path.dirname(__file__))
 
@@ -19,16 +19,7 @@ def read_origins(origin_file: str) -> list[list[str]]:
     return origins
 
 
-def context_mask_fam(
-    origins: list[list[str]], database: Literal["pfam", "rfam"], fam_id: str
-) -> tuple[list[bool], list[bool]]:
-    """Returns two masks, "any" and "all".
-    A mask contains for each item in origin,
-      if any/all of its PDB codes are mapped to fam_id in the 'pdb2<database> mapping file.
-
-    Rfam is mapped at the level of PDB chains.
-    Pfam is mapped at the level of whole PDB codes.
-    """
+def get_database_mapping(database: Literal["pfam", "rfam"]) -> dict[str, set[str]]:
     mappingfile = os.path.join(currdir, f"pdb2{database}.txt")
     mapping = {}
     with open(mappingfile) as f:
@@ -43,16 +34,35 @@ def context_mask_fam(
             if pdb not in mapping:
                 mapping[pdb] = set()
             mapping[pdb].add(fam)
+    return mapping
+
+
+def context_mask_fam(
+    origins: list[list[str]],
+    database: Literal["pfam", "rfam"],
+    fam_id: str,
+    database_mapping: Optional[dict] = None,
+) -> tuple[list[bool], list[bool]]:
+    """Returns two masks, "any" and "all".
+    A mask contains for each item in origin,
+      if any/all of its PDB codes are mapped to fam_id in the 'pdb2<database> mapping file.
+
+    Rfam is mapped at the level of PDB chains.
+    Pfam is mapped at the level of whole PDB codes.
+    """
+    if database_mapping is None:
+        database_mapping = get_database_mapping(database)
+
     any_mask, all_mask = [], []
     for pdb_codes in origins:
         curr_any = False
         curr_all = True
         for pdb in pdb_codes:
 
-            # see above
+            # see get_database_mapping
             pdb = pdb[:4]
 
-            if fam_id in mapping.get(pdb, []):
+            if fam_id in database_mapping.get(pdb, []):
                 curr_any = True
             else:
                 curr_all = False

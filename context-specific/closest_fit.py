@@ -1,14 +1,18 @@
 import itertools
+import random
 import sys
 import numpy as np
-from context_mask_fam import read_origins, context_mask_fam
-from closest_fit_lib import closest_fit_with_context
-from clusterlib import read_clustering
+from context_mask_fam import read_origins, context_mask_fam, get_database_mapping
+from closest_fit_lib import (
+    closest_fit_with_context,
+    completeness_with_context,
+    read_clustering,
+)
 
 try:
-    from tqdm import tqdm
+    from tqdm.auto import tqdm
 except ImportError:
-    tqdm = lambda arg: arg
+    tqdm = lambda arg, *, desc=None: arg
 
 
 def err(*args):
@@ -69,12 +73,15 @@ def _load(lib, motif):
     assert len(coors) == len(origins)
     assert len(original_closest_fit) == len(coors)
 
+    clustering05A, closest_cluster05A = get_clustering(0.5)
     clustering1A, closest_cluster1A = get_clustering(1.0)
     clustering2A, closest_cluster2A = get_clustering(2.0)
     return (
         coors,
         origins,
         original_closest_fit,
+        clustering05A,
+        closest_cluster05A,
         clustering1A,
         closest_cluster1A,
         clustering2A,
@@ -82,11 +89,41 @@ def _load(lib, motif):
     )
 
 
-def closest_fit(lib, motif, database, fam_id, max_sample, sample_frac):
+def closest_fit(
+    lib,
+    motif,
+    database,
+    fam_id,
+    max_sample=None,
+    sample_frac=None,
+) -> tuple[list, int]:
+    """Obtain the closest fit from multi-resolution analysis, re-using the earlier result.
+
+        lib: library (dinuc or trinuc)
+        motif: sequence motif (length 2 or length 3)
+        database: pfam or rfam
+        fam_id: database family name, e.g RF00005
+        max_sample: optional.
+
+                Do not fit all fragments.
+    Instead for each sequence motif, obtain a sample of approximately this size.
+    If there are less fragments than this, fit all fragments.
+
+        sample_frac: optional.
+        Do not fit all fragments, but a fraction thereof.
+
+    Returns:
+        - The closest fits for fragments that (may) belong to the family
+        - The total number of fragments that (may) belong to the family.
+          If max_sample or sample_frac was specified, this number will be higher
+           than the number of results.
+    """
     (
         coors,
         origins,
         original_closest_fit,
+        _,
+        _,
         clustering1A,
         closest_cluster1A,
         clustering2A,
@@ -95,7 +132,6 @@ def closest_fit(lib, motif, database, fam_id, max_sample, sample_frac):
     ctx_any, ctx_all = context_mask_fam(origins, database, fam_id)
     if sum(ctx_any) == 0:
         err(f"{database} entry {fam_id} does not exist in the dataset")
-    print(f"context: any={sum(ctx_any)}, all={sum(ctx_all)}, total={len(coors)}")
     result = closest_fit_with_context(
         original_closest_fit,
         coors,
@@ -108,7 +144,109 @@ def closest_fit(lib, motif, database, fam_id, max_sample, sample_frac):
         max_sample=max_sample,
         sample_frac=sample_frac,
     )
-    return result
+    return result, sum(ctx_any)
+
+
+class ClosestFit:
+    def __init__(self, lib):
+        assert lib in ("dinuc", "trinuc")
+        n_nuc = 2 if lib == "dinuc" else 3
+        self.motifs = ["".join(c) for c in itertools.product("AC", repeat=n_nuc)]
+        self._loaded = {}
+        self._database_mappings = {}
+        for motif in self.motifs:
+            self._loaded[motif] = _load(lib, motif)
+
+    def get_database_mapping(self, database):
+        if database not in self._database_mappings:
+            self._database_mappings[database] = get_database_mapping(database)
+        return self._database_mappings[database]
+
+    def get_completeness(self, database, fam_id):
+        result = {}
+
+        for motif in self.motifs:
+            loaded = self._loaded[motif]
+            origins = loaded[1]
+
+            ctx_any, ctx_all = context_mask_fam(
+                origins,
+                database,
+                fam_id,
+                database_mapping=self.get_database_mapping(database),
+            )
+            if sum(ctx_any) == 0:
+                err(f"{database} entry {fam_id} does not exist in the dataset")
+
+            clusterings = loaded[3::2]
+            for nclustering, precision in enumerate((0.5, 1.0, 2.0)):
+                clustering = clusterings[nclustering]
+                completeness, certainty = completeness_with_context(
+                    clustering, ctx_any, ctx_all, return_certainty=True
+                )
+                result[motif, precision] = completeness, certainty
+        return result
+
+    def get_closest_fit(self, database, fam_id, max_sample=None):
+        """Obtain the closest fit from multi-resolution analysis, re-using the earlier result.
+
+            Do this for all motifs of a library.
+
+            lib: library (dinuc or trinuc)
+            database: pfam or rfam
+            fam_id: database family name, e.g RF00005
+            max_sample: optional.
+
+                    Do not fit all fragments.
+        Instead for each sequence motif, obtain a sample of approximately this size.
+        If there are less fragments than this, fit all fragments
+        """
+
+        sample_frac = None
+        result = {}
+        for motif in tqdm(self.motifs, desc="Iterate over sequence motifs..."):
+
+            (
+                coors,
+                origins,
+                original_closest_fit,
+                _,
+                _,
+                clustering1A,
+                closest_cluster1A,
+                clustering2A,
+                closest_cluster2A,
+            ) = self._loaded[motif]
+            ctx_any, ctx_all = context_mask_fam(
+                origins,
+                database,
+                fam_id,
+                database_mapping=self.get_database_mapping(database),
+            )
+            if sum(ctx_any) == 0:
+                err(f"{database} entry {fam_id} does not exist in the dataset")
+            motif_result = closest_fit_with_context(
+                original_closest_fit,
+                coors,
+                ctx_any=ctx_any,
+                ctx_all=ctx_all,
+                clustering1A=clustering1A,
+                closest_cluster1A=closest_cluster1A,
+                clustering2A=clustering2A,
+                closest_cluster2A=closest_cluster2A,
+                max_sample=max_sample,
+                sample_frac=sample_frac,
+            )
+            motif_n_context = sum(ctx_any)
+
+            if sample_frac is None and max_sample is not None:
+                if motif_n_context == len(motif_result):
+                    sample_frac = None  # sample all structures
+                else:
+                    sample_frac = len(motif_result) / motif_n_context
+                max_sample = None
+            result[motif] = motif_result
+        return result
 
 
 if __name__ == "__main__":
@@ -122,40 +260,87 @@ if __name__ == "__main__":
     parser.add_argument(
         "--sample",
         help="""Do not fit all fragments. 
-Instead for each sequence motif, obtain a sample of approximately this size.
+Instead for each sequence motif, obtain a random sample of approximately this size.
 If there are less fragments than this, fit all fragments""",
         type=float,
     )
+    parser.add_argument(
+        "--seed",
+        help="""Random generator seed""",
+        default=0,
+        type=int,
+    )
     args = parser.parse_args()
+    random.seed(args.seed)
+    np.random.seed(args.seed)
 
     lib = args.lib
     assert lib in ("dinuc", "trinuc"), lib
     database = args.database
     assert database in ("pfam", "rfam"), database
-    fam_id = args.fam_id
-    outfile = args.outfile
 
-    n_nuc = 2 if lib == "dinuc" else 3
-    motifs = ["".join(c) for c in itertools.product("AC", repeat=n_nuc)]
-    result = []
-    sample_frac = None
-    max_sample = args.sample
-    for motif in tqdm(motifs):
-        motif_result, motif_n_result = closest_fit(
-            lib, motif, database, fam_id, max_sample=max_sample, sample_frac=sample_frac
-        )
-        if sample_frac is None and max_sample is not None:
-            if motif_n_result == len(motif_result):
-                sample_frac = None
-            else:
-                sample_frac = len(motif_result) / motif_n_result
-            max_sample = None
-        result += motif_result
-    with open(outfile, "w") as f:
-        for closest_fit, closest_fit_rmsd in result:
+    # result = closest_fit_all(lib, args.database, args.fam_id, max_sample=args.sample)
+    obj = ClosestFit(lib)
+    completeness = obj.get_completeness(args.database, args.fam_id)
+
+    print("Completeness at 0.5A, direct cluster analysis")
+    print(
+        [
+            (k[0], "{0:.3f}".format(v[0].mean()))
+            for k, v in completeness.items()
+            if k[1] == 0.5
+        ]
+    )
+    print("uncertainty")
+    print(
+        [
+            (k[0], "{0:.3f}".format(1 - v[1].mean()))
+            for k, v in completeness.items()
+            if k[1] == 0.5
+        ],
+    )
+    print("Completeness at 1.0A, direct cluster analysis")
+    print(
+        [
+            (k[0], "{0:.3f}".format(v[0].mean()))
+            for k, v in completeness.items()
+            if k[1] == 1.0
+        ]
+    )
+    print("uncertainty")
+    print(
+        [
+            (k[0], "{0:.3f}".format(1 - v[1].mean()))
+            for k, v in completeness.items()
+            if k[1] == 1.0
+        ],
+    )
+    result = obj.get_closest_fit(args.database, args.fam_id, max_sample=args.sample)
+    print("Completeness at 0.5A, explicit closest fit calculation")
+    print(
+        [
+            (k, "{0:.3f}".format((np.array([v[1] for v in result[k]]) < 0.5).mean()))
+            for k in result
+        ]
+    )
+    print("Completeness at 1.0A, explicit closest fit calculation")
+    print(
+        [
+            (k, "{0:.3f}".format((np.array([v[1] for v in result[k]]) < 1.0).mean()))
+            for k in result
+        ]
+    )
+
+    result2 = []
+    for k in result:
+        result2 += result[k]
+    result = result2
+
+    with open(args.outfile, "w") as f:
+        for closest_fit_, closest_fit_rmsd in result:
             ind = -1
             r = 0
-            if closest_fit is not None:
-                ind = closest_fit + 1
+            if closest_fit_ is not None:
+                ind = closest_fit_ + 1
                 r = closest_fit_rmsd
             print(ind, "{:.3f}".format(r), file=f)

@@ -1,23 +1,114 @@
 import os
 import sys
 import random
+import typing
 import numpy as np
-from clusterlib import read_clustering
-import nefertiti
-from nefertiti.functions.superimpose import (
-    superimpose,
-    superimpose_array,
-)
 
 try:
-    from tqdm import tqdm
+    from tqdm.auto import tqdm
 except ImportError:
-    tqdm = lambda arg: arg
+    tqdm = lambda arg, *, desc=None: arg
 
 
 def err(*args):
     print(*args, file=sys.stderr)
     exit(1)
+
+
+# from clusterlib
+def read_clustering(clusterfile):
+    clustering = []
+    if hasattr(clusterfile, "readlines"):
+        f = clusterfile
+    else:
+        f = open(clusterfile)
+    with f:
+        for lnr, l in enumerate(f.readlines()):
+            ll = l.split()
+            assert ll[0] == "Cluster"
+            assert ll[1] == str(lnr + 1)
+            assert ll[2] == "->"
+            c = [int(lll) for lll in ll[3:]]
+            clustering.append(c)
+    return clustering
+
+
+# /from clusterlib
+
+# from nefertiti
+
+"""Functions related to Kabsch superimposition
+
+Author: Sjoerd de Vries
+License: GPLv3, https://www.gnu.org/licenses/gpl-3.0.en.html
+
+This file is part of the Nefertiti project.
+"""
+
+import numpy as np
+from numpy import sqrt
+from numpy.linalg import svd, det
+
+
+def superimpose(coor1, coor2):
+    """Returns the rotation matrix and RMSD between coor1 and coor2
+
+    Do coor1.dot(rotmat) to perform the superposition
+    """
+    assert coor1.ndim == 2 and coor1.shape[-1] == 3, coor1.shape
+    assert coor2.ndim == 2 and coor2.shape[-1] == 3, coor2.shape
+    assert coor2.shape[0] == coor1.shape[0]
+    natoms = coor1.shape[0]
+
+    c1 = coor1 - coor1.mean(axis=0)
+    c2 = coor2 - coor2.mean(axis=0)
+
+    residual1 = (c1 * c1).sum()
+    residual2 = (c2 * c2).sum()
+    covar = c1.T.dot(c2)
+
+    v, s, wt = svd(covar)
+    if det(v) * det(wt) < 0:
+        s[-1] *= -1
+        v[:, -1] *= -1
+    rotmat = v.dot(wt)
+    ss = (residual1 + residual2) - 2 * s.sum()
+    if ss < 0:
+        ss = 0
+    rmsd = sqrt(ss / natoms)
+    return rotmat, rmsd
+
+
+def superimpose_array(coor1_array, coor2):
+    """Returns the rotation matrix and RMSD between coor1 and coor2
+    where coor1 is every element of coor1_array
+
+    Do np.einsum("ijk,ikl->ijl", coor1_array, rotmat) to perform the superpositions
+    """
+    assert coor1_array.ndim == 3 and coor1_array.shape[-1] == 3, coor1_array.shape
+    assert coor2.ndim == 2 and coor2.shape[-1] == 3, coor2.shape
+    assert coor2.shape[0] == coor1_array.shape[1]
+    natoms = coor2.shape[0]
+
+    c1_array = coor1_array - coor1_array.mean(axis=1)[:, None, :]
+    c2 = coor2 - coor2.mean(axis=0)
+
+    residual1 = np.einsum("ijk,ijk->i", c1_array, c1_array)
+    residual2 = (c2 * c2).sum()
+    covar = np.einsum("ijk,jl->ikl", c1_array, c2)
+
+    v, s, wt = svd(covar)
+    reflect = det(v) * det(wt)
+    s[:, -1] *= reflect
+    v[:, :, -1] *= reflect[:, None]
+    rotmat = np.einsum("...ij,...jk->...ik", v, wt)
+    ss = (residual1 + residual2) - 2 * s.sum(axis=1)
+    ss = np.maximum(ss, 0)
+    rmsd = sqrt(ss / natoms)
+    return rotmat, rmsd
+
+
+# /from nefertiti
 
 
 def closest_fit_with_context(
@@ -48,12 +139,20 @@ def closest_fit_with_context(
          the same context (ctx_all=True). However, if allow_any2any is False, this happens also
          if the closest structure is sometimes the same.
 
+        Recomputation is done using the multi-resolution method,
+
         Arguments:
 
         original_closest_fit, a list of (index, distance) pairs for each structure.
         "index" is a structure index counting from zero.
 
         coor: the structure coordinates
+
+        clustering1A, clustering2A: a list of clusters with their member indices.
+        Member indices start from zero. Every structure must be member of at least one cluster.
+
+        closest_cluster1A, closest_cluster2A. The cluster index in clustering1A/2A indicating
+        the closest cluster for each structure.
 
         ctx_any: a list of bools that indicate if the context may sometimes be positive.
         ctx_all: a list of bools that indicate if the context is always positive.
@@ -63,8 +162,7 @@ def closest_fit_with_context(
         max_sample: refit a sample with a maximum number of structures. If None, refit all structures
         sample_frac: refit a sample with a fraction of the structures. If None, refit all structures
 
-        Returns a tuple containing : the refitted structures, the total number of structures that should be refitted
-        The second number is equal to the length of the first argument but only
+        Returns the refitted structures
     """
     assert len(original_closest_fit) == len(coor)
     assert len(coor) == len(ctx_all)
@@ -94,8 +192,8 @@ def closest_fit_with_context(
     to_report = ctx_any & sample_mask
     to_refit2 = to_refit & sample_mask
 
-    if ctx_any.sum() > to_report.sum():
-        print("sample:", to_report.sum())
+    # if ctx_any.sum() > to_report.sum():
+    #    print("sample:", to_report.sum())
     result = closest_refit(
         original_closest_fit,
         coor,
@@ -110,7 +208,102 @@ def closest_fit_with_context(
         for ind in np.where(to_report & ~to_refit2)[0]:
             result[ind] = [None, 0.0]
     result = [result[k] for k in sorted(np.where(to_report)[0])]
-    return result, ctx_any.sum()
+    return result
+
+
+def completeness_with_context(
+    clustering,
+    ctx_any: list[bool],
+    ctx_all: list[bool],
+    *,
+    allow_any2any: bool = True,
+    return_certainty: bool = False,
+) -> typing.Union[np.ndarray, tuple[np.ndarray, np.ndarray]]:
+    """
+        Determines the "completeness" of cluster members using direct clustering analysis
+
+        Based on an abstract idea of "context" that can be positive or negative,
+          it is considered that closest fit pairs cannot be between two structures
+          for which the context is positive for both.
+        These closest fit pairs are eliminated.
+        If allow_any2any is False, this happens also if the closest structure is sometimes the same.
+        (in case of structures that have multiple origins)
+
+        Only structures where the context is sometimes positive (ctx_any=True) are considered.
+
+        Arguments:
+
+        clustering: clustering at the desired precision X.
+            It is assumed that each cluster contains all members within distance X of the cluster heart,
+             and that cluster hearts are at least X apart.
+        ctx_any: a list of bools that indicate if the context may sometimes be positive.
+        ctx_all: a list of bools that indicate if the context is always positive.
+    .
+        allow_any2any: allow closest fit pairs where both structures may sometimes (but not always) be positive.
+
+        Returns a boolean numpy array, indicating completeness, for every structure where ctx_any is True.
+
+        if return_certainty, also return a second boolean array indicating where the completeness was determined with certainty.
+            For cases where certainty=0, the accuracy is still in the order of 80 %.
+
+    """
+    assert len(ctx_all) == len(ctx_any)
+    ctx_all = np.array(ctx_all, bool)
+    ctx_any = np.array(ctx_any, bool)
+
+    allowed_fit_clustering = []
+    for clus in clustering:
+        allowed_fit = ~ctx_all if allow_any2any else ~ctx_any
+        allowed_fit_clus = [allowed_fit[member] for member in clus]
+        allowed_fit_clustering.append(allowed_fit_clus)
+
+    in_cluster = {n: [] for n in range(len(ctx_any))}
+    for clusnr, cluster in enumerate(clustering):
+        for member in cluster:
+            in_cluster[member].append(clusnr)
+
+    hearts = {clus[0]: clusnr for clusnr, clus in enumerate(clustering)}
+
+    result = []
+    result_certain = []
+    for conf in np.where(ctx_any)[0]:
+        complete = None
+        certain = None
+        hclus = hearts.get(conf)
+        if hclus is None:
+            # not a cluster heart
+            for clus in in_cluster[conf]:
+                allowed_fit_cluster = allowed_fit_clustering[clus]
+                # default: only in-ctx clusters
+                #   => no known acceptable closest fit, but we aren't certain
+                complete = False
+                certain = False
+                if allowed_fit_cluster[0]:
+                    # cluster heart is an acceptable closest fit
+                    complete, certain = True, True
+                    break
+                elif any(allowed_fit_cluster):
+                    # some of the cluster is an acceptable closest fit
+                    complete, certain = True, False
+        else:
+            # cluster heart
+            assert in_cluster[conf] == [hclus]
+            certain = True
+            allowed_fit_cluster = allowed_fit_clustering[hclus]
+            if any(allowed_fit_cluster):
+                complete = True
+            else:
+                complete = False
+
+        result.append(complete)
+        result_certain.append(certain)
+
+    result = np.array(result, dtype=bool)
+    if not return_certainty:
+        return result
+    else:
+        result_certain = np.array(result_certain)
+        return result, result_certain
 
 
 def _get_closest_fit(
@@ -138,7 +331,7 @@ def _get_closest_fit(
 
     todo_confs = [conf for conf in range(nconf) if conf not in done]
     random.shuffle(todo_confs)
-    for conf in tqdm(todo_confs):
+    for conf in tqdm(todo_confs, desc=f"Find {precision}A bullseye clusters..."):
 
         struc = coors[conf]
 
@@ -306,7 +499,8 @@ def closest_refit(
     clustering2A,
     closest_cluster2A,
 ) -> list:
-    """Updates an original closest fit of coor[to_refit] on coor
+    """Updates an original closest fit of coor[to_refit] on coor.
+    Coordinates are refitted using the multi-resolution method.
 
     Arguments:
 
@@ -317,8 +511,11 @@ def closest_refit(
 
     allowed_fit: All cases where the closest fit has allowed_fit=False are rejected and recomputed
 
-    clustering1A, closest_cluster1A, clustering2A, closest_cluster2A:
-        clustering at 1A and 2A
+    clustering1A, clustering2A: a list of clusters with their member indices.
+    Member indices start from zero. Every structure must be member of at least one cluster.
+
+    closest_cluster1A, closest_cluster2A. The cluster index in clustering1A/2A indicating
+    the closest cluster for each structure.
     """
     assert coor.ndim == 3 and coor.shape[-1] == 3, coor.shape
     assert len(to_refit) == len(coor)
@@ -340,7 +537,6 @@ def closest_refit(
             result0[conf] = ori
 
     done = list(no_refit) + list(result0.keys())
-    print(nconf - len(done), nconf)
 
     result1A = _get_closest_fit(
         coor,
@@ -353,8 +549,8 @@ def closest_refit(
     )
 
     done = list(no_refit) + list(result1A.keys()) + list(result0.keys())
-    print(nconf - len(done), nconf)
 
+    # START: multi-resolution method
     result2A = _get_closest_fit(
         coor,
         allowed_fit,
@@ -375,7 +571,6 @@ def closest_refit(
         and conf not in result2A
         and conf not in result0
     ]
-    print(len(remaining), nconf)
 
     random.shuffle(remaining)
     remaining = np.array(remaining, int)
@@ -399,7 +594,7 @@ def closest_refit(
             in_cluster[member].append(clusnr)
 
     big_clust2A_rmsd = []
-    for n, big_clust in enumerate(tqdm(big_clust2A)):
+    for n, big_clust in enumerate(big_clust2A):
         big_struc = big_struc2A[n]
         cluster_struc = coor[big_clust]
         _, rmsd = superimpose_array(cluster_struc, big_struc)
@@ -407,7 +602,7 @@ def closest_refit(
 
     all_candidates = np.ones((len(remaining), len(coor)), bool)
     closest_rmsd_initial_estimates = []
-    for confnr, conf in enumerate(tqdm(remaining)):
+    for confnr, conf in enumerate(remaining):
         struc = coor[conf]
         _, rmsd_bigclust1A = superimpose_array(big_struc1A, struc)
         _, rmsd_bigclust2A = superimpose_array(big_struc2A, struc)
@@ -441,7 +636,7 @@ def closest_refit(
             candidates[big_clust[elim]] = 0
 
     # We will have to brute-force against the rest...
-    for confnr, conf in enumerate(tqdm(remaining)):
+    for confnr, conf in enumerate(tqdm(remaining, desc="Search remaining")):
         struc = coor[conf]
         closest_fit_rmsd = None
         closest_fit = None
@@ -462,5 +657,7 @@ def closest_refit(
     result.update(result1A)
     result.update(result2A)
     result.update(result_remaining)
+
+    # END: multi-resolution method
 
     return result
