@@ -12,7 +12,10 @@ except ImportError:
 
 def err(*args):
     print(*args, file=sys.stderr)
-    exit(1)
+    try:
+        exit(1)
+    except NameError:
+        pass
 
 
 # from clusterlib
@@ -124,7 +127,7 @@ def closest_fit_with_context(
     allow_any2any: bool = True,
     max_sample=None,
     sample_frac=None,
-) -> tuple[list, int]:
+) -> list[tuple[int, float]]:
     """
         Updates a previous closest fit with context information.
 
