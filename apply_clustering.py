@@ -70,7 +70,7 @@ indices.sort()
 if not args.force:
     if indices[0] != 1:
         err("Clustering does not start at 1")
-    elif not np.alltrue(indices == np.arange(len(indices)) + 1):
+    elif not np.all(indices == np.arange(len(indices)) + 1):
         err("Clustering has missing and/or duplicate indices")
 
 if args.force:

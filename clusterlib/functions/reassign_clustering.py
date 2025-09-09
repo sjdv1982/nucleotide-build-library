@@ -35,7 +35,7 @@ def reassign_clustering(
 
     if all_indices[0] != 0:
         raise ValueError("Clustering does not start at 0")
-    elif not np.alltrue(np.unique(all_indices) == np.arange(all_indices[-1] + 1)):
+    elif not np.all(np.unique(all_indices) == np.arange(all_indices[-1] + 1)):
         raise ValueError("Clustering has missing indices")
 
     del all_indices
