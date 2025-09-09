@@ -210,7 +210,9 @@ def closest_fit_with_context(
     if allow_any2any:
         for ind in np.where(to_report & ~to_refit2)[0]:
             result[ind] = [None, 0.0]
-    result = [result[k] for k in sorted(np.where(to_report)[0])]
+    result = [
+        result[k] for k in sorted(np.where(to_report)[0]) if result[k][1] is not None
+    ]
     return result
 
 
