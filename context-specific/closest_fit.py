@@ -187,7 +187,7 @@ class ClosestFit:
                 max_sample=max_sample,
                 sample_frac=sample_frac,
             )
-            motif_result = np.array([v[1] for v in motif_result0])
+            motif_result = np.array([v[1] for v in motif_result0 if v[1] is not None])
 
             motif_n_context = sum(ctx_any)
 
