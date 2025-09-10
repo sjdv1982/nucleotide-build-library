@@ -68,5 +68,8 @@ An experienced user can supply their own context labeling, but two have been imp
 
 An interactive notebook is provided where the user chooses a library (dinuc or trinuc), a database (Rfam or Pfam), and a family ID. The notebook then quickly computes the context-specific completeness and then computes the closest fit RMSD, which is then plotted as a histogram. It is possible to select a sample (for each motif) from all fragments with the context. In that case,the calculation will finish within a few minutes, otherwise it takes up to an hour or two (for the largest families).
 
-The notebook can be opened in Google Colab, without any installation on the user's computer:
-<https://colab.research.google.com/github/sjdv1982/nucleotide-build-library/blob/main/context-specific/completeness.ipynb>
+This notebook can be executed online, without any installation on the user's computer:
+
+- In Google Colab, using [this link](https://colab.research.google.com/github/sjdv1982/nucleotide-build-library/blob/main/context-specific/completeness.ipynb)
+
+- In Binder, using [this link](https://mybinder.org/v2/gh/sjdv1982/nucleotide-build-library/HEAD?urlpath=%2Fdoc%2Ftree%2Fcontext-specific%2Fcompleteness.ipynb)
