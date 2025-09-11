@@ -94,7 +94,7 @@ Script to run:
 
 - Inside the `context-specific` subfolder: the `completess` notebook.
 
-This notebook can be executed online, without any installation on the user's computer:
+The notebook can also be executed online, without any installation on the user's computer:
 
 - In Google Colab, using [this link](https://colab.research.google.com/github/sjdv1982/nucleotide-build-library/blob/main/context-specific/completeness.ipynb)
 
