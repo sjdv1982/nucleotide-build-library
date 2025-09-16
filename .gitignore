@@ -10,3 +10,4 @@ verification/result/*
 *.out
 context-specific/pdb2*.txt
 !.gitkeep
+*.job

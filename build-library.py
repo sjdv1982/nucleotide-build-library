@@ -29,9 +29,9 @@ motif = sys.argv[2]
 precision = sys.argv[3]
 
 
-origin_file = f"input/lib-{lib}-nonredundant-filtered-{motif}-origin.txt"
+origin_file = f"nucleotide-fragments/{lib}/origin/{motif}.txt"
 clusterfile = f"output/lib-{lib}-{motif}-{precision}.all.clust"
-coorfile = f"input/lib-{lib}-nonredundant-filtered-{motif}.npy"
+coorfile = f"nucleotide-fragments/{lib}/{motif}.npy"
 
 coors = np.load(coorfile)
 assert coors.ndim == 3 and coors.shape[-1] == 3, coors.shape
