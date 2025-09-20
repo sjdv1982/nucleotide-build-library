@@ -1,0 +1,2 @@
+pdb_chain_pfam.lst:  Downloaded from ftp://ftp.ebi.ac.uk/pub/databases/msd/sifts/text/pdb_chain_pfam.lst, Sept 20 2025
+Rfam-pdb.txt: Downloaded from https://ftp.ebi.ac.uk/pub/databases/Rfam/CURRENT/Rfam.pdb.gz, Sept 20 2025
