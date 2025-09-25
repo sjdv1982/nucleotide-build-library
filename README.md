@@ -53,6 +53,15 @@ Script to run:
 
 - build-library.sh (or equivalent script with parallel cluster jobs)
 
+
+### Step 4. Align the library
+
+Each conformer is centered in the origin, and oriented such that the largest dimension is the X-axis, and the second largest the Y-axis.
+
+Script to run:
+
+- align-library.sh
+
 ## Closest fit computation
 
 This repo contains an algorithm that calculates the closest fit (nearest-neighbour) of each fragment, excluding fragments from the same PDB.

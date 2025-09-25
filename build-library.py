@@ -223,7 +223,7 @@ extension_coors = coors[extension]
 
 
 print("Write library files", file=sys.stderr)
-base = f"library/{lib}-{motif}-{precision}"
+base = f"output/{lib}-{motif}-{precision}"
 np.save(f"{base}.npy", primary_coors)
 np.save(f"{base}-replacement.npy", replacement_coors)
 with open(f"{base}-replacement.txt", "w") as f:
