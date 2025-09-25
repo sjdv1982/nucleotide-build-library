@@ -22,7 +22,7 @@ assert lib in ("dinuc", "trinuc")
 motif = sys.argv[2]
 precision = sys.argv[3]
 sublib = sys.argv[4]
-assert sublib in ("primary", "extension", "replacement"), sublib
+assert sublib in ("primary", "extension"), sublib
 
 base = f"{lib}-{motif}-{precision}"
 if sublib == "primary":
